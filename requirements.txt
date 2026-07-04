@@ -1,1 +1,4 @@
 # Python dependencies for Smart In-Cabin DMS
+numpy
+mediapipe==0.10.35
+opencv-contrib-python

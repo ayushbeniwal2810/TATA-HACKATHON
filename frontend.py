@@ -124,11 +124,11 @@ while True:
             paper_bgcolor="#0f172a",
             plot_bgcolor="#111827",
         )
-        trend_slot.plotly_chart(fig, use_container_width=True)
+        trend_slot.plotly_chart(fig, use_container_width=True, key="fatigue_chart")
 
     # Event log
     if events:
         edf = pd.DataFrame(events[::-1][:12])  # latest 12
-        events_slot.dataframe(edf, use_container_width=True, hide_index=True)
+        events_slot.dataframe(edf, use_container_width=True, hide_index=True, key="events_table")
 
     time.sleep(0.08 if running else 0.2)

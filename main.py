@@ -8,6 +8,7 @@ from dms.driver_monitor import DriverMonitor
 from dms.gesture_controller import GestureController
 from dms.auth_system import AuthSystem
 from dms.alarm_manager import AlarmManager
+from dms.fatigue_meter import FatigueMeter
 
 
 def ensure_models():
@@ -47,6 +48,7 @@ def main():
 
     auth = AuthSystem(timeout_sec=cfg.auth_timeout_sec)
     alarm = AlarmManager(cooldown_sec=cfg.alarm_cooldown_sec)
+    fatigue_meter = FatigueMeter()
 
     driver_monitor = DriverMonitor(
         ear_thr=cfg.ear_threshold,
@@ -68,7 +70,7 @@ def main():
         print("[ERROR] Could not open webcam.")
         return
 
-    print("[INFO] Press 'a' to authenticate (demo), 'q' to quit.")
+    print("[INFO] Press 'a' to authenticate (demo), 'z' to test alarm, 'q' to quit.")
 
     while True:
         ok, frame = cap.read()
@@ -93,12 +95,13 @@ def main():
 
             # 2) Driver monitoring
             frame, drowsy = driver_monitor.process(frame, now_ts=now_ts)
+
             if drowsy["face_found"]:
                 status_lines.append(("Face: Detected", (0, 255, 0)))
                 status_lines.append((f"EAR: {drowsy['ear']:.2f}", (255, 255, 0)))
                 status_lines.append((f"MAR: {drowsy['mar']:.2f}", (255, 255, 0)))
             else:
-                status_lines.append(("Face: Not detected", (0, 0, 255)))            
+                status_lines.append(("Face: Not detected", (0, 0, 255)))
 
             if drowsy["eyes_closed_alarm"]:
                 status_lines.append(("ALERT: Eyes closed!", (0, 0, 255)))
@@ -114,16 +117,42 @@ def main():
             if volume_event:
                 status_lines.append((volume_event, (255, 200, 100)))
 
+            # 4) Fatigue meter
+            fat = fatigue_meter.update(
+                now_ts=now_ts,
+                face_found=drowsy["face_found"],
+                eyes_closed_flag=drowsy["eyes_closed_alarm"],
+                yawn_flag=drowsy["yawn_warning"],
+            )
+
+            risk_color = {
+                "NORMAL": (0, 255, 0),
+                "MILD": (0, 255, 255),
+                "HIGH": (0, 165, 255),
+                "CRITICAL": (0, 0, 255),
+            }.get(fat["risk"], (255, 255, 255))
+
+            status_lines.append((f"Fatigue: {fat['fatigue_score']}% ({fat['risk']})", risk_color))
+            status_lines.append((f"Confidence: {int(fat['confidence'] * 100)}%", (180, 180, 180)))
+
+            # Escalation from fatigue level
+            if fat["risk"] == "CRITICAL":
+                alarm.trigger("fatigue_critical", now_ts)
+            elif fat["risk"] == "HIGH":
+                alarm.trigger("fatigue_high", now_ts)
+
         frame = draw_status_panel(frame, status_lines, start_y=30)
+        cv2.imshow("Smart In-Cabin Driver Monitoring System", frame)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('a'):
             auth.mark_authenticated(now_ts)
             print("[INFO] Authenticated (demo).")
+        elif key == ord('z'):
+            alarm.trigger("manual_test", now_ts)
+            print("[TEST] Alarm trigger key pressed.")
         elif key == ord('q'):
             break
-
-        cv2.imshow("Smart In-Cabin Driver Monitoring System", frame)
 
     cap.release()
     cv2.destroyAllWindows()

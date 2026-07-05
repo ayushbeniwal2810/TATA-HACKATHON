@@ -1,29 +1,18 @@
 # Smart In-Cabin Driver Monitoring System (DMS)
 
-AI-powered **Driver Monitoring + Gesture Control** project built in Python using **OpenCV** and **MediaPipe Tasks API**.
+AI-powered **Driver Monitoring + Gesture Control** project built in Python using **OpenCV**, **MediaPipe Tasks API**, and a **Streamlit frontend dashboard**.
 
-This system is designed for in-cabin safety and interaction:
-- Detects driver drowsiness signs (eyes closed, yawning)
+## What it does
+
+- Monitors driver state from webcam feed
+- Detects:
+  - prolonged eye closure (drowsiness)
+  - yawning events
+- Computes a live **Fatigue Meter (%)**
 - Supports demo authentication flow
-- Includes hand gesture-based volume control
-- Triggers alarms for risky conditions
-
----
-
-## Features
-
-- **Face-based driver monitoring**
-  - Eye Aspect Ratio (EAR) based prolonged eye-closure detection
-  - Mouth Aspect Ratio (MAR) based yawn detection
-- **Alarm manager**
-  - Cooldown-based alert triggering
-  - Extensible audio warning system
-- **Gesture controller**
-  - Pinch-distance based volume estimation
-- **Authentication gate (demo mode)**
-  - Press `A` to authenticate during runtime demo
-- **Real-time visual status panel**
-  - Auth status, face detection, EAR/MAR values, alerts, volume
+- Supports hand-gesture based volume control
+- Triggers alerts/alarms based on risk level
+- Displays live telemetry in frontend dashboard
 
 ---
 
@@ -31,136 +20,124 @@ This system is designed for in-cabin safety and interaction:
 
 ```text
 TATA-HACKATHON/
-├── main.py
+├── main.py                  # Backend-only app runner (OpenCV window)
+├── frontend.py              # Streamlit UI
+├── dms_service.py           # Background DMS loop for frontend
+├── app_state.py             # Shared state between backend loop and UI
 ├── config.py
+├── requirements.txt
 ├── dms/
+│   ├── __init__.py
 │   ├── alarm_manager.py
 │   ├── auth_system.py
 │   ├── driver_monitor.py
+│   ├── fatigue_meter.py
 │   ├── gesture_controller.py
 │   └── utils.py
-├── models/
-│   ├── face_landmarker.task
-│   └── hand_landmarker.task
-└── README.md
+└── models/
+    ├── face_landmarker.task
+    └── hand_landmarker.task
 ```
 
 ---
 
-## Tech Stack
+## Prerequisites
 
-- **Python 3.13**
-- **OpenCV**
-- **MediaPipe Tasks (Vision)**
-- NumPy
+- Python **3.10+** (tested on 3.13)
+- Webcam access enabled
+- MediaPipe task models downloaded into `models/`
+
+Required model files:
+- `models/face_landmarker.task`
+- `models/hand_landmarker.task`
 
 ---
 
 ## Setup
 
-### 1) Clone repository
 ```bash
 git clone https://github.com/ayushbeniwal2810/TATA-HACKATHON.git
 cd TATA-HACKATHON
-```
-
-### 2) Create and activate virtual environment (recommended)
-```bash
 python3.13 -m venv .venv313
-source .venv313/bin/activate
-```
-
-### 3) Install dependencies
-```bash
+source .venv313/bin/activate      # macOS/Linux
+# .venv313\Scripts\activate       # Windows
 pip install --upgrade pip
-pip install opencv-python mediapipe numpy
+pip install -r requirements.txt
 ```
-
-### 4) Download required MediaPipe models
-Create a `models/` folder and place:
-- `face_landmarker.task`
-- `hand_landmarker.task`
-
-> The app will exit with an error if these files are missing.
-
 ---
 
-## Run
+## Run Options
+
+## 1) Run backend-only mode (OpenCV window)
 
 ```bash
 python main.py
 ```
 
 Controls:
-- Press **A** → authenticate (demo mode)
-- Press **Q** → quit
+- `A` → demo authenticate
+- `Z` → manual alarm test
+- `Q` → quit
 
 ---
 
-## Configuration
+## 2) Run full frontend dashboard (recommended)
 
-Edit `config.py` for thresholds and tuning:
+```bash
+streamlit run frontend.py
+```
 
-- `ear_threshold`
-- `mar_threshold`
-- `eyes_closed_duration_sec`
-- `yawn_duration_sec`
-- `alarm_cooldown_sec`
-- gesture pinch parameters
+Frontend provides:
+- Live camera feed
+- Fatigue % and risk band
+- Confidence / EAR / MAR / volume
+- Start / Stop / Authenticate controls
+- Trend graph + recent event log
 
 ---
 
-## Current Status
+## Fatigue Meter (high level)
 
-✅ Core webcam pipeline running  
-✅ Gesture control working  
-✅ Face monitoring integrated  
-✅ Demo auth flow integrated  
+Fatigue score (0–100) is derived from:
+- eye-closure persistence
+- PERCLOS-like eye closure ratio over time window
+- yawn ratio over time window
 
-🔧 In refinement:
-- Alarm audio reliability across environments
-- Yawn detection calibration per lighting/face distance
-- Biometric profile support (planned)
+Risk bands:
+- `0–29` NORMAL
+- `30–59` MILD
+- `60–79` HIGH
+- `80–100` CRITICAL
 
 ---
 
 ## Troubleshooting
 
-### 1) `ImportError` for custom modules
-Ensure project structure and filenames match imports exactly and run from repo root.
-
-### 2) Camera opens but no face detection
-- Improve lighting
-- Keep face centered and closer
-- Verify `models/face_landmarker.task` exists
-- Recheck `driver_monitor.py` running mode (`VIDEO` for stream)
-
-### 3) MediaPipe warning logs in terminal
-Most `I0000/W0000` logs are informational and non-fatal unless app crashes.
-
-### 4) Alarm not audible
-Depends on OS/audio backend and configured alarm implementation; verify system output device and test alarm manually.
+- If Streamlit cannot import local files:
+  - run command from repo root
+  - ensure `dms/__init__.py` exists
+- If camera fails:
+  - close other apps using webcam
+  - check camera permissions
+- If no landmarks detected:
+  - verify model files exist in `models/`
+  - improve lighting / face position
+- If alarm not audible:
+  - verify system output device
+  - test using OS sound command directly
 
 ---
 
-## Roadmap
+## Current Status
 
-- [ ] Biometric profile module
-- [ ] Backend logging/API integration
-- [ ] Session analytics dashboard
-- [ ] Improved alert policies and personalization
-- [ ] Production-grade packaging
+- ✅ Backend detection pipeline integrated
+- ✅ Fatigue meter integrated
+- ✅ Frontend dashboard integrated
+- 🔧 Ongoing threshold calibration for varied environments
 
 ---
 
 ## Author
 
-**Ayush Beniwal**  
+Ayush Beniwal  
 GitHub: [@ayushbeniwal2810](https://github.com/ayushbeniwal2810)
-
----
-
-## License
-
-This project is currently for hackathon/prototype use.  
-Add a license file (`MIT`, `Apache-2.0`, etc.) before production/public reuse.
